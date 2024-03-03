@@ -1,12 +1,12 @@
+import { dirname, extname, resolve } from 'node:path';
 import { Worker } from 'node:worker_threads';
-import { extname, resolve, dirname } from 'node:path';
 
 import { fileURLToPath } from 'node:url';
-import type * as Vite from 'vite';
 import debugWrap from 'debug';
-import { getFilter, getOptions, shouldIgnoreModule, initializeStylelint, lintFiles } from './utils';
-import type { StylelintInstance, StylelintFormatter, StylelintPluginUserOptions } from './types';
+import type * as Vite from 'vite';
 import { PLUGIN_NAME } from './constants';
+import type { StylelintFormatter, StylelintInstance, StylelintPluginUserOptions } from './types';
+import { getFilter, getOptions, initializeStylelint, lintFiles, shouldIgnoreModule } from './utils';
 
 const debug = debugWrap(PLUGIN_NAME);
 const __filename = fileURLToPath(import.meta.url);
@@ -26,10 +26,19 @@ export default function StylelintPlugin(userOptions: StylelintPluginUserOptions 
     name: PLUGIN_NAME,
     apply(config, { command }) {
       debug(`==== apply hook ====`);
-      if (config.mode === 'test' || process.env.VITEST) return options.test;
+      if (config.mode === 'test' || process.env.VITEST) {
+        debug(`should apply this plugin: ${options.test}`);
+
+        // for playwright test temporarily
+        config.customLogger?.info(`should apply this plugin: ${options.test}`);
+        return options.test;
+      }
       const shouldApply =
         (command === 'serve' && options.dev) || (command === 'build' && options.build);
       debug(`should apply this plugin: ${shouldApply}`);
+
+      // for playwright test temporarily
+      config.customLogger?.info(`should apply this plugin: ${shouldApply}`);
       return shouldApply;
     },
     async buildStart() {
@@ -48,7 +57,7 @@ export default function StylelintPlugin(userOptions: StylelintPluginUserOptions 
       formatter = result.formatter;
 
       if (options.lintOnStart) {
-        debug(`Lint on start`);
+        debug(`Lint on start: begin`);
         await lintFiles(
           {
             files: options.include,
@@ -58,6 +67,7 @@ export default function StylelintPlugin(userOptions: StylelintPluginUserOptions 
           },
           this,
         );
+        debug(`Lint on start: end`);
       }
     },
     // this hook will be called before built-in transform, such as scss => css transformation, so we can lint scss code in  this hook.
